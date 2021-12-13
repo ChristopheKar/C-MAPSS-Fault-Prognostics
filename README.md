@@ -3,6 +3,19 @@
 This project aims to predict the Remaining Useful Life (RUL) for turbofan engines based on some sensor values.
 The engine degradation was simulated using C-MAPSS under different conditions, and the dataset is provided by NASA [here](https://ti.arc.nasa.gov/tech/dash/groups/pcoe/prognostic-data-repository/#turbofan).
 
+## Usage
+
+Several notebooks are provided to explore this problem.
+
+The first notebook  `EDA.ipynb` is for exploratory data analysis, for getting familiar with the
+nature and shape of the data, and get an idea of how the sensors evolve for the different datasets.
+
+The second notebook `regression.ipynb` applies different regressors to the RUL prediction problem,
+while varying different parameters involved in building the train/test datasets.
+
+The third notebook, `LSTM.ipynb` tackles the prediction problem with more complex models, namely
+an LSTM and an GRU.
+
 
 ## Setup
 
