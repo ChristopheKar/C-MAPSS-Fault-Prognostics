@@ -143,7 +143,7 @@ def build_dataset(
 
     if (test):
         smooth = 0
-        clip = False
+        clip = None
         df = df.groupby(['unit']).last().reset_index()
 
     if (include_settings is not None):
@@ -166,8 +166,8 @@ def build_dataset(
     if ((reshape_2d) and (lag > 0)):
         X = X.reshape((-1, len(cols)//(lag + 1), lag + 1))
 
-    if (clip):
-        y = y.clip(max=125)
+    if (isinstance(clip, int)):
+        y = y.clip(max=clip)
 
 
     if (cv_folds is not None):
