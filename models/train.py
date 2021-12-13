@@ -8,6 +8,20 @@ from tqdm.notebook import tqdm as tqdm_nb
 from .gru import GRU
 from .lstm import LSTM
 
+
+def preprocess(X, y, scaler, fit_scaler=True):
+    shape = X.shape
+    X = X.copy()
+    X = X.reshape((-1, np.prod(shape[1:])))
+    if (fit_scaler):
+        scaler = scaler.fit(X)
+
+    X = scaler.fit_transform(X).reshape(shape)
+    y = np.expand_dims(y, axis=1)
+
+    return X, y, scaler
+
+
 def train(
     device, train_loader, criterion=nn.MSELoss(),
     learning_rate=0.001, batch_size=1024,
