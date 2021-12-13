@@ -2,6 +2,8 @@ import os
 import numpy as np
 import pandas as pd
 
+from sklearn.model_selection import KFold
+
 
 def load_cmapss_subset(data_dir, subset, unit_col='unit'):
     """
@@ -71,3 +73,114 @@ def add_rul(df, unit_col='unit'):
     merged_df = merged_df.drop('max_time', axis=1)
 
     return merged_df
+
+
+def add_lag(df_in, n_lags, columns):
+    """Add lagged variables to dataframe."""
+    df = df_in.copy()
+    for i in range(n_lags):
+        lagged_columns = [col + '_lag_{}'.format(i+1) for col in columns]
+        df[lagged_columns] = df.groupby('unit')[columns].shift(i+1)
+    df.dropna(inplace=True)
+    return df
+
+
+def sorter(name):
+    """Sort by sensor index."""
+    if ('sensor' in name):
+        return int(name.split('sensor')[-1].split('_')[0])
+    else:
+        return 0
+
+
+def build_dataset(
+    df,
+    drop_sensors=None,
+    clip=None, cv_folds=5,
+    smooth=0, lag=0,
+    test=False, include_settings=None,
+    return_cols=False, reshape_2d=False):
+
+    """
+    Process dataset for training and testing.
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        C-MAPSS train or test data.
+    drop_sensors: list or None
+        List of sensor indexes to drop.
+    clip: int or None
+        Saturate y-train values at `clip` value.
+    cv_folds: int or None
+        Number of folds for cross-validation.
+    smooth: int
+        Window size for moving-average smoother, 0 for no smoothing.
+    lag: int
+        Number of lagged variables to add, 0 for none.
+    test: bool
+        Specifies if dataset is test or train.
+    include_settings: list or None
+        List of setting indexes to include.
+    return_cols: bool
+        If True, returns column names.
+    reshape_2d: bool
+        If True and `lag` > 0, reshapes data from (samples, n_sensors x lag),
+        to (samples, n_sensors, lag).
+
+    """
+
+    header = list(df.columns)[:-1]
+    n_meta = len(header) - len([col for col in header if ('sensor' in col)])
+
+    if (drop_sensors is not None):
+        drop_sensors = [f'sensor{i}' for i in drop_sensors]
+        df = df.drop(drop_sensors, axis=1)
+
+    if (lag > 0):
+        df = add_lag(df, lag, df.columns[n_meta:-1])
+
+
+    if (test):
+        smooth = 0
+        clip = False
+        df = df.groupby(['unit']).last().reset_index()
+
+    if (include_settings is not None):
+        columns = list(set(header[:n_meta]) - set([f'setting{s}' for s in include_settings]))
+    else:
+        columns = header[:n_meta]
+
+
+    X = df.drop(columns, axis=1)
+    y = X.pop('RUL')
+    cols = sorted(X.columns, key=sorter)
+    X = X[cols]
+
+    if (smooth > 0):
+        X = X.rolling(smooth, min_periods=1).mean()
+
+    X = np.asarray(X)
+    y = np.asarray(y)
+
+    if ((reshape_2d) and (lag > 0)):
+        X = X.reshape((-1, len(cols)//(lag + 1), lag + 1))
+
+    if (clip):
+        y = y.clip(max=125)
+
+
+    if (cv_folds is not None):
+        try:
+            cv_folds = int(cv_folds)
+        except:
+            raise TypeError('`cv_folds` must be None or int')
+
+        cv = KFold(n_splits=cv_folds)
+    else:
+        cv = None
+
+    if (return_cols):
+        return X, y, cv, cols
+    else:
+        return X, y, cv
